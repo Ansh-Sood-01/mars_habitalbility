@@ -233,6 +233,10 @@ export default function MarsPlanetScene({ phase }: { phase: MarsPhase }) {
 
       const renderFrame = () => {
         if (disposed || !renderer) return;
+        if (document.hidden) {
+          frame = 0;
+          return;
+        }
         const delta = Math.min(clock.getDelta(), 0.05);
         elapsed += delta;
         const palette = PALETTES[phaseRef.current];
@@ -261,7 +265,12 @@ export default function MarsPlanetScene({ phase }: { phase: MarsPhase }) {
       renderFrame();
 
       const handleVisibility = () => {
-        if (!document.hidden && !reducedMotion && !frame) frame = window.requestAnimationFrame(renderFrame);
+        if (document.hidden) {
+          if (frame) window.cancelAnimationFrame(frame);
+          frame = 0;
+          return;
+        }
+        if (!reducedMotion && !frame) frame = window.requestAnimationFrame(renderFrame);
       };
       document.addEventListener('visibilitychange', handleVisibility);
 
