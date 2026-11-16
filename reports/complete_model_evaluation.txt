@@ -1,0 +1,35 @@
+MARS LAB - MODEL EVALUATION REPORT
+=======================================================
+
+Validation samples: 293
+Features: 395
+Chemical families: 10
+
+OVERALL METRICS
+-------------------------------------------------------
+macro_f1: 0.7823
+micro_f1: 0.7905
+macro_precision: 0.8521
+macro_recall: 0.7286
+micro_precision: 0.8557
+micro_recall: 0.7345
+macro_log_loss: 0.1836
+
+PER-LABEL METRICS
+-------------------------------------------------------
+chemical_family  precision   recall  f1_score  log_loss  positive_samples  total_samples
+         basalt   0.833333 0.645161  0.727273  0.172192                31            293
+      carbonate   0.896552 0.742857  0.812500  0.158351                35            293
+       chloride   0.958333 0.589744  0.730159  0.185548                39            293
+     iron_oxide   0.836364 0.730159  0.779661  0.272633                63            293
+        oxalate   0.833333 0.769231  0.800000  0.052083                13            293
+    oxychlorine   0.796610 0.783333  0.789916  0.225674                60            293
+ phyllosilicate   0.904762 0.760000  0.826087  0.317046               100            293
+       silicate   0.722222 0.722222  0.722222  0.189193                36            293
+        sulfate   0.905660 0.774194  0.834783  0.197480                62            293
+        sulfide   0.833333 0.769231  0.800000  0.066076                13            293
+
+INTERPRETATION NOTE
+Log loss evaluates the quality of predicted scores. Lower values are better. Extra Trees probability outputs are not necessarily calibrated probabilities.
+
+These results measure performance on the supplied validation dataset and do not independently establish chemical identification or habitability.

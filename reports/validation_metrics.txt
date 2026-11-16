@@ -1,0 +1,24 @@
+macro_f1: 0.7823
+micro_f1: 0.7905
+macro_precision: 0.8521
+macro_recall: 0.7286
+micro_precision: 0.8557
+micro_recall: 0.7345
+
+                precision    recall  f1-score   support
+
+        basalt       0.83      0.65      0.73        31
+     carbonate       0.90      0.74      0.81        35
+      chloride       0.96      0.59      0.73        39
+    iron_oxide       0.84      0.73      0.78        63
+       oxalate       0.83      0.77      0.80        13
+   oxychlorine       0.80      0.78      0.79        60
+phyllosilicate       0.90      0.76      0.83       100
+      silicate       0.72      0.72      0.72        36
+       sulfate       0.91      0.77      0.83        62
+       sulfide       0.83      0.77      0.80        13
+
+     micro avg       0.86      0.73      0.79       452
+     macro avg       0.85      0.73      0.78       452
+  weighted avg       0.86      0.73      0.79       452
+   samples avg       0.65      0.62      0.62       452

@@ -1,0 +1,25 @@
+
+NASA SAM MACHINE LEARNING REPORT
+=================================
+
+Total experiments: 97
+
+Original numerical features: 37
+
+PCA components: 11
+
+PCA explained variance: 95.14%
+
+Best number of clusters: 3
+
+Best silhouette score: 0.4027
+
+Normal experiments: 83
+
+Anomalous experiments: 14
+
+IMPORTANT:
+Anomaly detection identifies unusual feature patterns.
+Clusters represent statistical similarities.
+Neither result establishes mineral identity,
+biological activity, or planetary habitability.
