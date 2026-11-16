@@ -215,8 +215,8 @@ export default function MarsPlanetScene({ phase }: { phase: MarsPhase }) {
       scene.add(dust);
 
       const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      const clock = new THREE.Clock();
-      let elapsed = 0;
+      const timer = new THREE.Timer();
+      timer.connect(document);
 
       const resize = () => {
         if (!renderer || !host) return;
@@ -231,14 +231,15 @@ export default function MarsPlanetScene({ phase }: { phase: MarsPhase }) {
       resizeObserver = new ResizeObserver(resize);
       resizeObserver.observe(host);
 
-      const renderFrame = () => {
+      const renderFrame = (timestamp?: number) => {
         if (disposed || !renderer) return;
         if (document.hidden) {
           frame = 0;
           return;
         }
-        const delta = Math.min(clock.getDelta(), 0.05);
-        elapsed += delta;
+        timer.update(timestamp);
+        const delta = Math.min(timer.getDelta(), 0.05);
+        const elapsed = timer.getElapsed();
         const palette = PALETTES[phaseRef.current];
 
         if (!reducedMotion) {
@@ -279,6 +280,8 @@ export default function MarsPlanetScene({ phase }: { phase: MarsPhase }) {
         window.cancelAnimationFrame(frame);
         document.removeEventListener('visibilitychange', handleVisibility);
         resizeObserver?.disconnect();
+        timer.disconnect();
+        timer.dispose();
         planet.geometry.dispose();
         planetMaterial.dispose();
         texture?.dispose();
