@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import './mars-lab.css';
+import './mars-atmosphere.css';
+import MarsPlanetScene, { type MarsPhase } from './MarsPlanetScene';
 
 type Tab = 'overview' | 'classify' | 'archive' | 'map' | 'anomalies';
 
@@ -61,6 +63,7 @@ function isAnomaly(item: Experiment) {
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>('overview');
+  const [phase, setPhase] = useState<MarsPhase>('dawn');
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -121,6 +124,18 @@ export default function Home() {
   useEffect(() => { void loadDashboard(); }, []);
 
   useEffect(() => {
+    const phases: MarsPhase[] = ['dawn', 'day', 'dust', 'night'];
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) return;
+    let index = 0;
+    const timer = window.setInterval(() => {
+      index = (index + 1) % phases.length;
+      setPhase(phases[index]);
+    }, 28000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     if (!selected) { setSelectedSpectrum(null); setSpectrumError(''); return; }
     const controller = new AbortController();
     async function getSpectrum() {
@@ -159,7 +174,7 @@ export default function Home() {
   const pageInfo = NAV.find((item) => item.id === tab)!;
 
   return (
-    <main className="ml-app">
+    <main className="ml-app" data-phase={phase}>
       <header className="ml-topbar">
         <button className="ml-brand" onClick={() => setTab('overview')} aria-label="MARS LAB home">
           <span className="ml-brand-mark"><span /></span>
@@ -172,7 +187,7 @@ export default function Home() {
         </nav>
         <div className="ml-top-actions">
           <span className={`ml-status ${connected ? 'online' : loading ? 'pending' : 'offline'}`}><i />{loading ? 'SYNCING' : connected ? 'API ONLINE' : 'API OFFLINE'}</span>
-          <button className="ml-refresh" onClick={() => void loadDashboard()} disabled={loading} title="Refresh data">↻</button>
+          <span className="ml-cycle-indicator" title="Decorative simulated lighting cycle, not live Mars weather"><i /> ATMOSPHERE <strong>{phase.toUpperCase()}</strong></span><button className="ml-refresh" onClick={() => void loadDashboard()} disabled={loading} title="Refresh data">↻</button>
         </div>
       </header>
 
@@ -186,28 +201,14 @@ export default function Home() {
 
         {tab === 'overview' && <>
           <section className="ml-hero">
-            <div className="ml-hero-copy"><div className="ml-stamp"><span className="ml-stamp-dot" /> RESEARCH ENVIRONMENT / LIVE SESSION</div>
+            <div className="ml-hero-copy"><div className="ml-stamp"><span className="ml-stamp-dot" /> RESEARCH ENVIRONMENT / SIMULATED LIGHT CYCLE</div>
               <p className="ml-hero-overline">THE RED PLANET, READ THROUGH DATA</p>
               <h2>Every sample<br /><em>leaves a signal.</em></h2>
-              <p className="ml-hero-description">A scientific workspace for exploring Mars Sample Analysis at Mars measurements, mapping statistical patterns and screening new spectra for chemical-family signals.</p>
+              <p className="ml-hero-description">A scientific workspace for exploring Mars Sample Analysis at Mars (SAM) measurements, mapping statistical patterns and screening new spectra for chemical-family signals.</p>
               <div className="ml-hero-actions"><button className="ml-button ml-button-light" onClick={() => setTab('archive')}>Explore SAM archive <span>↗</span></button><button className="ml-text-button" onClick={() => setTab('classify')}>Analyze a spectrum <span>→</span></button></div>
               <div className="ml-hero-foot"><span>MISSION DATA</span><b>MSL · SAM · QMS</b><span className="ml-hero-divider" /><span>ANALYTICS</span><b>PCA / K-MEANS / IF</b></div>
             </div>
-            <div className="ml-planet-stage" aria-label="Stylized planet Mars illustration"><div className="ml-planet-orbit orbit-a"/><div className="ml-planet-orbit orbit-b"/><div className="ml-planet-shadow"/><div className="ml-planet"><span className="ml-crater crater-a"/><span className="ml-crater crater-b"/><span className="ml-crater crater-c"/><span className="ml-crater crater-d"/><span className="ml-planet-highlight"/></div><div className="ml-planet-caption"><span>OBJECT 04</span><strong>MARS</strong><small>4TH PLANET · SOLAR SYSTEM</small></div><div className="ml-orbit-label label-a">QMS SIGNAL</div><div className="ml-orbit-label label-b">DATA / 01</div></div>
-          </section>
-
-          <section className="ml-stat-strip">
-            <Metric label="SAM experiments" value={fmt(overview?.total_experiments, 0)} note="QMS experiment records" accent="orange" />
-            <Metric label="Feature dimensions" value={fmt(overview?.total_features, 0)} note="Engineered variables" accent="blue" />
-            <Metric label="Statistical clusters" value={fmt(overview?.total_clusters, 0)} note="K-Means grouping" accent="green" />
-            <Metric label="Flagged outliers" value={fmt(overview?.total_anomalies, 0)} note="Isolation Forest" accent="red" />
-          </section>
-
-          <section className="ml-overview-grid">
-            <div className="ml-panel ml-panel-large"><PanelTitle eyebrow="01 / DATA DISTRIBUTION" title="Cluster composition" detail="How the 97 SAM experiments are grouped" /><ClusterBars clusters={clusters} /></div>
-            <div className="ml-panel ml-pipeline-panel"><PanelTitle eyebrow="02 / PROCESS" title="Analysis pipeline" detail="From raw measurement to model output" /><div className="ml-pipeline">{[['01','QMS archive','Original AMU / counts data'],['02','Feature engineering','41 experiment-level descriptors'],['03','PCA reduction',`${fmt(overview?.pca_components, 0)} retained components`],['04','K-Means + Isolation Forest','Clusters and statistical outliers']].map((step, index) => <div className="ml-pipeline-step" key={step[0]}><span className="ml-pipeline-number">{step[0]}</span><div><strong>{step[1]}</strong><small>{step[2]}</small></div>{index < 3 && <i />}</div>)}</div></div>
-          </section>
-          <section className="ml-overview-bottom"><div className="ml-panel"><PanelTitle eyebrow="03 / RECENT RECORDS" title="Latest in the archive" detail="Select a record to inspect its original spectrum" /><ExperimentList items={experiments.slice(0, 5)} onSelect={setSelected} compact /></div><div className="ml-note-card"><span className="ml-note-number">SCIENCE NOTE / 01</span><div className="ml-note-icon">✳</div><h3>Patterns are not identifications.</h3><p>Clusters and outlier scores describe statistical structure in partially processed measurements. They are not confirmed chemical identifications, biosignatures or evidence of life.</p><button className="ml-note-link" onClick={() => setTab('map')}>Explore the data map ↗</button></div></section>
+            <MarsPlanetScene phase={phase} /></section>
         </>}
 
         {tab === 'classify' && <section className="ml-classify-layout">
