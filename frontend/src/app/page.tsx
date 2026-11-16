@@ -215,7 +215,7 @@ export default function Home() {
           <div className="ml-classify-intro"><span className="ml-section-index">02 / MODEL WORKSPACE</span><h2>Turn a spectrum<br /><em>into a hypothesis.</em></h2><p>Upload a CSV with <code>time</code>, <code>temp</code>, <code>m/z</code> and <code>abundance</code> columns. The trained multi-label classifier scores ten chemical families independently.</p><div className="ml-model-facts"><div><strong>10</strong><span>chemical families</span></div><div><strong>395</strong><span>model features</span></div><div><strong>0.782</strong><span>validation macro-F1</span></div></div><div className="ml-model-warning">MODEL OUTPUTS ARE SCORES — NOT CALIBRATED PROBABILITIES OR DEFINITIVE CHEMICAL CONFIRMATIONS.</div></div>
           <div className="ml-classifier-workspace"><div className="ml-panel ml-upload-panel"><PanelTitle eyebrow="INPUT / CSV SPECTRUM" title="Load a sample" detail="CSV file · comma separated values"/><label className={`ml-dropzone ${selectedFile ? 'has-file' : ''}`} htmlFor="ml-spectrum-file"><input id="ml-spectrum-file" type="file" accept=".csv,text/csv" onChange={(event) => { setSelectedFile(event.target.files?.[0] || null); setPrediction(null); setPredictionError(''); }}/><span className="ml-upload-icon">↥</span><strong>{selectedFile ? selectedFile.name : 'Drop a spectrum file here'}</strong><span>{selectedFile ? `${(selectedFile.size / 1024).toFixed(1)} KB · Ready to analyze` : 'or click to browse from your computer'}</span><small>REQUIRED FIELDS: TIME · TEMP · M/Z · ABUNDANCE</small></label>{predictionError && <p className="ml-inline-error">{predictionError}</p>}<button className="ml-button ml-button-orange ml-analyze-button" onClick={() => void analyzeSpectrum()} disabled={!selectedFile || predictionLoading}>{predictionLoading ? 'Analyzing sample…' : 'Run chemical-family analysis  →'}</button></div>
             {predictionLoading && <div className="ml-panel ml-loading-card"><span className="ml-spinner"/><div><strong>Processing spectral signature</strong><p>Extracting features and scoring chemical families…</p></div></div>}
-            {prediction && <div className="ml-results"><div className="ml-results-head"><div><span className="ml-section-index">OUTPUT / {prediction.filename}</span><h3>Classification results</h3></div><span className="ml-result-count">{prediction.detected_count} / {prediction.total_chemical_families} detected</span></div><div className="ml-result-metrics"><Metric label="Measurements" value={fmt(prediction.total_measurements, 0)} note="Rows in uploaded file" accent="orange"/><Metric label="Features extracted" value={fmt(prediction.features_extracted, 0)} note="Input descriptors" accent="blue"/><Metric label="Families scored" value={fmt(prediction.total_chemical_families, 0)} note="Independent labels" accent="green"/></div><div className="ml-panel"><PanelTitle eyebrow="MODEL OUTPUT" title="Chemical-family scores" detail="Higher scores indicate stronger model support; they are not calibrated probabilities."/><div className="ml-family-grid">{prediction.predictions.map((item) => <FamilyScore key={item.chemical_family} item={item}/>)}</div></div>{prediction.spectrum?.length > 0 && <div className="ml-panel"><PanelTitle eyebrow="SIGNAL / UPLOADED SAMPLE" title="Input spectrum" detail="Abundance against mass-to-charge ratio"/><SpectrumChart points={prediction.spectrum}/></div>}</div>}
+            {prediction && <div className="ml-results"><div className="ml-results-head"><div><span className="ml-section-index">OUTPUT / {prediction.filename}</span><h3>Classification results</h3></div><DetectionSummary predictions={prediction.predictions} total={prediction.total_chemical_families} /></div><div className="ml-result-metrics"><Metric label="Measurements" value={fmt(prediction.total_measurements, 0)} note="Rows in uploaded file" accent="orange"/><Metric label="Features extracted" value={fmt(prediction.features_extracted, 0)} note="Input descriptors" accent="blue"/><Metric label="Families scored" value={fmt(prediction.total_chemical_families, 0)} note="Independent labels" accent="green"/></div><div className="ml-panel"><PanelTitle eyebrow="MODEL OUTPUT" title="Chemical-family scores" detail="Higher scores indicate stronger model support; they are not calibrated probabilities."/><div className="ml-family-grid">{prediction.predictions.map((item) => <FamilyScore key={item.chemical_family} item={item}/>)}</div></div>{prediction.spectrum?.length > 0 && <div className="ml-panel"><PanelTitle eyebrow="SIGNAL / UPLOADED SAMPLE" title="Input spectrum" detail="Abundance against mass-to-charge ratio"/><SpectrumChart points={prediction.spectrum}/></div>}</div>}
           </div>
         </section>}
 
@@ -244,6 +244,40 @@ function Metric({ label: title, value, note, accent }: { label: string; value: s
 function PanelTitle({ eyebrow, title, detail }: { eyebrow: string; title: string; detail?: string }) {
   return <div className="ml-panel-title"><span>{eyebrow}</span><h3>{title}</h3>{detail && <p>{detail}</p>}</div>;
 }
+function DetectionSummary({ predictions, total }: { predictions: ChemicalPrediction[]; total: number }) {
+  const detected = predictions.filter((item) => Number(item.prediction) === 1).length;
+  const familyCount = Math.max(0, Number.isFinite(total) ? total : predictions.length);
+  const ratio = familyCount > 0 ? Math.min(1, detected / familyCount) : 0;
+  const circumference = 188.5;
+  const offset = circumference * (1 - ratio);
+  const message = detected === 0
+    ? 'No chemical-family labels were marked as detected in this spectrum.'
+    : `${detected} chemical-family label${detected === 1 ? '' : 's'} marked as detected by the model.`;
+
+  return (
+    <div className="ml-detection-summary" aria-label={`${detected} of ${familyCount} chemical families marked as detected by the model`}>
+      <div className="ml-detection-ring">
+        <svg viewBox="0 0 76 76" role="img" aria-label={`${Math.round(ratio * 100)} percent of family labels detected`}>
+          <circle className="ml-ring-track" cx="38" cy="38" r="30" />
+          <circle className="ml-ring-value" cx="38" cy="38" r="30" strokeDasharray={circumference} strokeDashoffset={offset} />
+        </svg>
+        <div className="ml-ring-center"><strong>{detected}</strong><span>/ {familyCount}</span></div>
+      </div>
+      <div className="ml-detection-copy">
+        <span className="ml-detection-kicker">MODEL SCREENING SUMMARY</span>
+        <strong>{detected === 0 ? 'No family flags' : `${detected} family flag${detected === 1 ? '' : 's'}`}</strong>
+        <p>{message}</p>
+        <div className="ml-detection-segments" aria-label="One indicator per chemical family">
+          {predictions.map((item) => {
+            const active = Number(item.prediction) === 1;
+            return <span key={item.chemical_family} className={active ? 'is-detected' : ''} title={`${label(item.chemical_family)}: ${active ? 'model marked detected' : 'not marked detected'}`} />;
+          })}
+        </div>
+        <small>MODEL LABELS ONLY · NOT CONFIRMED CHEMISTRY</small>
+      </div>
+    </div>
+  );
+}
 function ClusterTag({ cluster }: { cluster?: number }) {
   const color = cluster == null ? '#9a9a91' : CLUSTER_COLORS[Math.abs(cluster) % CLUSTER_COLORS.length];
   return <span className="ml-cluster-tag"><i style={{ background: color }}/>{cluster == null ? 'Unassigned' : `Cluster ${cluster}`}</span>;
@@ -260,12 +294,47 @@ function FamilyScore({ item }: { item: ChemicalPrediction }) {
   return <div className={`ml-family-card ${detected ? 'detected' : ''}`}><div className="ml-family-top"><strong>{label(item.chemical_family)}</strong><span>{detected ? 'DETECTED' : 'NOT DETECTED'}</span></div><div className="ml-family-score"><b>{score.toFixed(3)}</b><small>MODEL SCORE</small></div><div className="ml-family-track"><i style={{ width: `${score * 100}%` }}/></div></div>;
 }
 function QmsChart({ points }: { points: QmsPoint[] }) {
-  const width = 900, height = 250, pad = 48;
-  const valid = points.filter((p) => Number.isFinite(p.amu) && Number.isFinite(p.counts_per_second) && p.counts_per_second >= 0);
+  const width = 900, height = 290, pad = { left: 66, right: 24, top: 18, bottom: 48 };
+  const valid = points.filter((point) => Number.isFinite(point.amu) && Number.isFinite(point.counts_per_second) && point.counts_per_second >= 0);
   if (!valid.length) return <p className="ml-empty">No valid spectrum points to display.</p>;
-  const minX = Math.min(...valid.map((p) => p.amu)), maxX = Math.max(...valid.map((p) => p.amu));
-  const maxY = Math.max(...valid.map((p) => p.counts_per_second), 1), range = maxX - minX || 1;
-  return <div className="ml-svg-chart"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="QMS mass spectrum, counts per second against AMU">{[0,1,2,3,4].map((n) => { const y = pad + n * (height - 2*pad) / 4; return <g key={n}><line x1={pad} y1={y} x2={width-pad} y2={y} className="ml-grid-line"/><text x={pad-10} y={y+4} textAnchor="end" className="ml-svg-tick">{fmt(maxY * (4-n) / 4, 0)}</text></g>; })}{valid.map((p, i) => { const x = pad + (p.amu-minX)/range*(width-2*pad), y = height-pad-(p.counts_per_second/maxY)*(height-2*pad); return <line key={`${p.amu}-${i}`} x1={x} x2={x} y1={height-pad} y2={y} className="ml-qms-stem"><title>{`AMU ${p.amu} · ${p.counts_per_second} counts/sec`}</title></line>; })}<line x1={pad} y1={height-pad} x2={width-pad} y2={height-pad} className="ml-axis-line"/><text x={width/2} y={height-8} textAnchor="middle" className="ml-svg-label">AMU / MASS-TO-CHARGE RATIO</text><text x={14} y={height/2} textAnchor="middle" className="ml-svg-label" transform={`rotate(-90 14 ${height/2})`}>COUNTS / SEC</text></svg></div>;
+  const minX = Math.min(...valid.map((point) => point.amu));
+  const maxX = Math.max(...valid.map((point) => point.amu));
+  const maxY = Math.max(...valid.map((point) => point.counts_per_second), 1);
+  const xRange = maxX - minX || 1;
+  const plotWidth = width - pad.left - pad.right;
+  const plotHeight = height - pad.top - pad.bottom;
+  const x = (value: number) => pad.left + ((value - minX) / xRange) * plotWidth;
+  const y = (value: number) => pad.top + plotHeight - (value / maxY) * plotHeight;
+  const xTicks = Array.from({ length: 5 }, (_, index) => minX + (xRange * index) / 4);
+
+  return (
+    <div className="ml-svg-chart ml-chart-enhanced">
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="QMS mass spectrum, counts per second against AMU">
+        {[0, 1, 2, 3, 4].map((tick) => {
+          const value = (maxY * (4 - tick)) / 4;
+          const tickY = y(value);
+          return <g key={tick}>
+            <line x1={pad.left} y1={tickY} x2={width - pad.right} y2={tickY} className="ml-grid-line" />
+            <text x={pad.left - 12} y={tickY + 4} textAnchor="end" className="ml-svg-tick">{fmt(value, 0)}</text>
+          </g>;
+        })}
+        {xTicks.map((value, index) => <g key={index}>
+          <line x1={x(value)} y1={height - pad.bottom} x2={x(value)} y2={height - pad.bottom + 5} className="ml-axis-line" />
+          <text x={x(value)} y={height - pad.bottom + 19} textAnchor="middle" className="ml-svg-tick">{fmt(value, 1)}</text>
+        </g>)}
+        {valid.map((point, index) => {
+          const px = x(point.amu), py = y(point.counts_per_second);
+          return <line key={`${point.amu}-${index}`} x1={px} x2={px} y1={height - pad.bottom} y2={py} className="ml-qms-stem">
+            <title>{`AMU ${point.amu} · ${point.counts_per_second} counts/sec`}</title>
+          </line>;
+        })}
+        <line x1={pad.left} y1={height - pad.bottom} x2={width - pad.right} y2={height - pad.bottom} className="ml-axis-line" />
+        <text x={width / 2} y={height - 8} textAnchor="middle" className="ml-svg-label">AMU / MASS-TO-CHARGE RATIO</text>
+        <text x={15} y={height / 2} textAnchor="middle" className="ml-svg-label" transform={`rotate(-90 15 ${height / 2})`}>COUNTS / SEC</text>
+      </svg>
+      <div className="ml-chart-caption"><span>{valid.length.toLocaleString()} displayed measurement points</span><span>QMS · ORIGINAL COUNTS</span></div>
+    </div>
+  );
 }
 function SpectrumChart({ points }: { points: SpectrumPoint[] }) {
   const sorted = [...points].filter((p) => Number.isFinite(Number(p['m/z'])) && Number.isFinite(Number(p.abundance))).sort((a,b) => Number(a['m/z'])-Number(b['m/z']));
@@ -276,8 +345,47 @@ function SpectrumChart({ points }: { points: SpectrumPoint[] }) {
   return <div className="ml-svg-chart"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Uploaded spectrum, abundance against m/z">{[0,1,2,3,4].map(n=>{const y=pad+n*(height-2*pad)/4;return <line key={n} x1={pad} y1={y} x2={width-pad} y2={y} className="ml-grid-line"/>;})}{sampled.map((p,i)=>{const x=pad+(Number(p['m/z'])-minX)/range*(width-2*pad),y=height-pad-(Number(p.abundance)/maxY)*(height-2*pad);return <line key={i} x1={x} x2={x} y1={height-pad} y2={y} className="ml-spectrum-stem"><title>{`m/z ${p['m/z']} · abundance ${p.abundance}`}</title></line>;})}<line x1={pad} y1={height-pad} x2={width-pad} y2={height-pad} className="ml-axis-line"/><text x={width/2} y={height-8} textAnchor="middle" className="ml-svg-label">MASS-TO-CHARGE RATIO (M/Z)</text></svg></div>;
 }
 function PCAChart({ points, onSelect }: { points: PCAPoint[]; onSelect: (id: string) => void }) {
-  const width=900,height=510,pad=55;
-  if (!points.length) return <div className="ml-empty">PCA coordinates are not available.</div>;
-  const xs=points.map(p=>p.pc1),ys=points.map(p=>p.pc2),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),rangeX=maxX-minX||1,rangeY=maxY-minY||1;
-  return <div className="ml-pca-chart"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="PCA scatter plot of SAM experiments">{[0,1,2,3,4].map(n=><g key={n}><line x1={pad+n*(width-2*pad)/4} y1={pad} x2={pad+n*(width-2*pad)/4} y2={height-pad} className="ml-grid-line"/><line x1={pad} y1={pad+n*(height-2*pad)/4} x2={width-pad} y2={pad+n*(height-2*pad)/4} className="ml-grid-line"/></g>)}{points.map((point,i)=>{const x=pad+(point.pc1-minX)/rangeX*(width-2*pad),y=height-pad-(point.pc2-minY)/rangeY*(height-2*pad),color=CLUSTER_COLORS[Math.abs(point.cluster)%CLUSTER_COLORS.length];return <circle key={`${point.experiment_id}-${i}`} cx={x} cy={y} r={point.anomaly?7:5} fill={color} stroke={point.anomaly?'#e45e39':'#fffdf8'} strokeWidth={point.anomaly?3:1.2} className="ml-pca-point" onClick={()=>onSelect(String(point.experiment_id))} tabIndex={0} role="button" onKeyDown={(event)=>{if(event.key==='Enter'||event.key===' ')onSelect(String(point.experiment_id));}}><title>{`Experiment ${point.experiment_id} · Cluster ${point.cluster}${point.anomaly?' · Outlier':''}`}</title></circle>;})}<line x1={pad} y1={height-pad} x2={width-pad} y2={height-pad} className="ml-axis-line"/><line x1={pad} y1={pad} x2={pad} y2={height-pad} className="ml-axis-line"/><text x={width/2} y={height-10} textAnchor="middle" className="ml-svg-label">PRINCIPAL COMPONENT 1</text><text x={15} y={height/2} textAnchor="middle" className="ml-svg-label" transform={`rotate(-90 15 ${height/2})`}>PRINCIPAL COMPONENT 2</text></svg><p className="ml-chart-hint">Select any point to open the corresponding experiment.</p></div>;
+  const width = 900, height = 540, pad = { left: 76, right: 28, top: 28, bottom: 62 };
+  const valid = points.filter((point) => Number.isFinite(point.pc1) && Number.isFinite(point.pc2));
+  if (!valid.length) return <div className="ml-empty">PCA coordinates are not available.</div>;
+
+  const xs = valid.map((point) => point.pc1), ys = valid.map((point) => point.pc2);
+  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+  const rangeX = maxX - minX || 1, rangeY = maxY - minY || 1;
+  const plotWidth = width - pad.left - pad.right, plotHeight = height - pad.top - pad.bottom;
+  const x = (value: number) => pad.left + ((value - minX) / rangeX) * plotWidth;
+  const y = (value: number) => pad.top + plotHeight - ((value - minY) / rangeY) * plotHeight;
+  const xTicks = Array.from({ length: 5 }, (_, index) => minX + (rangeX * index) / 4);
+  const yTicks = Array.from({ length: 5 }, (_, index) => minY + (rangeY * index) / 4);
+
+  return (
+    <div className="ml-pca-chart ml-chart-enhanced">
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`PCA scatter plot showing ${valid.length} SAM experiments`}>
+        <defs><radialGradient id="pca-point-halo"><stop offset="0%" stopColor="#e89a73" stopOpacity=".22" /><stop offset="100%" stopColor="#e89a73" stopOpacity="0" /></radialGradient></defs>
+        {xTicks.map((value, index) => <g key={`x-${index}`}>
+          <line x1={x(value)} y1={pad.top} x2={x(value)} y2={height - pad.bottom} className="ml-grid-line" />
+          <text x={x(value)} y={height - pad.bottom + 20} textAnchor="middle" className="ml-svg-tick">{fmt(value, 2)}</text>
+        </g>)}
+        {yTicks.map((value, index) => <g key={`y-${index}`}>
+          <line x1={pad.left} y1={y(value)} x2={width - pad.right} y2={y(value)} className="ml-grid-line" />
+          <text x={pad.left - 12} y={y(value) + 4} textAnchor="end" className="ml-svg-tick">{fmt(value, 2)}</text>
+        </g>)}
+        {valid.map((point, index) => {
+          const px = x(point.pc1), py = y(point.pc2);
+          const color = CLUSTER_COLORS[Math.abs(point.cluster) % CLUSTER_COLORS.length];
+          return <g key={`${point.experiment_id}-${index}`}>
+            {point.anomaly && <circle cx={px} cy={py} r="13" fill="url(#pca-point-halo)" />}
+            <circle cx={px} cy={py} r={point.anomaly ? 7 : 5} fill={color} stroke={point.anomaly ? '#f0a184' : '#cbd8df'} strokeWidth={point.anomaly ? 2.4 : 1.1} className="ml-pca-point" onClick={() => onSelect(String(point.experiment_id))} tabIndex={0} role="button" aria-label={`Open experiment ${point.experiment_id}, cluster ${point.cluster}${point.anomaly ? ', outlier' : ''}`} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(String(point.experiment_id)); } }}>
+              <title>{`Experiment ${point.experiment_id} · PC1 ${fmt(point.pc1, 4)} · PC2 ${fmt(point.pc2, 4)} · Cluster ${point.cluster}${point.anomaly ? ' · Outlier' : ''}`}</title>
+            </circle>
+          </g>;
+        })}
+        <line x1={pad.left} y1={height - pad.bottom} x2={width - pad.right} y2={height - pad.bottom} className="ml-axis-line" />
+        <line x1={pad.left} y1={pad.top} x2={pad.left} y2={height - pad.bottom} className="ml-axis-line" />
+        <text x={width / 2} y={height - 11} textAnchor="middle" className="ml-svg-label">PRINCIPAL COMPONENT 1</text>
+        <text x={16} y={height / 2} textAnchor="middle" className="ml-svg-label" transform={`rotate(-90 16 ${height / 2})`}>PRINCIPAL COMPONENT 2</text>
+      </svg>
+      <div className="ml-chart-caption"><span>{valid.length.toLocaleString()} observations plotted</span><span>SELECT A POINT TO INSPECT THE EXPERIMENT</span></div>
+    </div>
+  );
 }
